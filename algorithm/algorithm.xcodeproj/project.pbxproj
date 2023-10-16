@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		988B8E222AD92C8A0095B7D9 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 988B8E212AD92C8A0095B7D9 /* main.cpp */; };
+		988B8E2D2AD932800095B7D9 /* nypc-2022.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 988B8E2B2AD9317B0095B7D9 /* nypc-2022.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -25,6 +25,7 @@
 /* Begin PBXFileReference section */
 		988B8E1E2AD92C8A0095B7D9 /* algorithm */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = algorithm; sourceTree = BUILT_PRODUCTS_DIR; };
 		988B8E212AD92C8A0095B7D9 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
+		988B8E2B2AD9317B0095B7D9 /* nypc-2022.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "nypc-2022.cpp"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,6 +59,7 @@
 			isa = PBXGroup;
 			children = (
 				988B8E212AD92C8A0095B7D9 /* main.cpp */,
+				988B8E2B2AD9317B0095B7D9 /* nypc-2022.cpp */,
 			);
 			path = algorithm;
 			sourceTree = "<group>";
@@ -119,7 +121,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				988B8E222AD92C8A0095B7D9 /* main.cpp in Sources */,
+				988B8E2D2AD932800095B7D9 /* nypc-2022.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
