@@ -3,6 +3,7 @@
         "iostream": "cpp",
         "string": "cpp",
         "queue": "cpp",
-        "ostream": "cpp"
+        "ostream": "cpp",
+        "valarray": "cpp"
     }
 }
