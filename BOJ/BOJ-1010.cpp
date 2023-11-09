@@ -5,6 +5,7 @@ int main(){
     double res;
     double M,N;
     int tmp;
+    cout << "Enter :";
     cin >> T;
     for(int i=0; i<T; i++){
         cin >> N >> M;
