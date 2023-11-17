@@ -17,7 +17,7 @@ void bfs(int start, int graph[][1001], int visited[]){
             if(graph[start][i] == 1 && !visited[i]){
                 q.push(i);
                 visited[i] = true;
-            }
+            }  
         }
     }
 }
