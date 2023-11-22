@@ -10,10 +10,9 @@ int res;
 
 void bfs(){
     while(!q.empty()){
+        
         int start_x = q.front().first;
         int start_y = q.front().second;
-        q.pop();
-
         for(int i=0; i<4; i++){
             int next_x = start_x + dx[i];
             int next_y = start_y + dy[i];
