@@ -17,7 +17,7 @@ void dfs(int start){
 }
 
 int main(){
-    int n;
+    int n; 
     cin >> n;
     for(int i=1; i<n; i++){
         int node1, node2;
