@@ -7,11 +7,12 @@ int cnt;
 
 void dfs(int start){
     visited[start] = 1;
-    int k = tree[start].size();
-    
-    for(int i=0; i<k; i++){
+    for(int i=0; i<tree[start].size(); i++){
         int next = tree[start][i];
-        if(next == del) tree[start].erase(tree[start].begin()+i);
+        if(next == del) {
+            tree[start].erase(tree[start].begin()+i);
+            i=-1;
+        }
         if(next != del && !visited[next]){
             dfs(next);
         }
