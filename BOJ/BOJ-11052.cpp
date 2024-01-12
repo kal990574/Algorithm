@@ -13,5 +13,5 @@ int main(){
             dp[i] = max(dp[i], dp[i-j] + card[j]);
         }
     }
-    cout << dp[n];
+    cout << dp[n]
 }
