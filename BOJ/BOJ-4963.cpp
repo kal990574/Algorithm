@@ -45,7 +45,7 @@ int main(){
             }
         }   
     cout << res << "\n";
-    fill(maps.begin(), maps.end(), vector<int>(51, 51));
-    fill(visited.begin(), visited.end(), vector<int>(51, 51));
+    maps.assign(51, vector<int>(51, 0));
+    visited.assign(51, vector<int>(51, 0));
     }
 }
