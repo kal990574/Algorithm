@@ -12,6 +12,5 @@ int main(){
     while(tmp > *max_element(v.begin(), v.end())){
         idx ++;
         v[0] += 1;
-        v[idx] -= 1;
     }
 }
