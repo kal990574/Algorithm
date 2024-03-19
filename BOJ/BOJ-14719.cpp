@@ -15,7 +15,8 @@ int main(){
     int ans=0;
 
     for(int i=1; i<w-1; i++) {
-        int left = arr[i], right = arr[i];
+        int left = arr[i];
+        int right = arr[i];
 
         for(int j=0; j<i; j++) {
             left = max(left, arr[j]);
