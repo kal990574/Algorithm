@@ -1,3 +1,4 @@
+// 범위 및 조건부 함수를 따로 정의할 것
 #include <bits/stdc++.h>
 using namespace std;
 int dx[4] = {-1,1,0,0};
