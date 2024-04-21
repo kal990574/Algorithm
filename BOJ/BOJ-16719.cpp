@@ -1,3 +1,4 @@
+// 재귀 활용 자주 하기
 #include <bits/stdc++.h>
 using namespace std;
 #define INF 999
@@ -14,14 +15,14 @@ void zoac(int start, int end){
             idx = i;
         }
     }
-        if(min == INF) return;
-        arr[idx] = 1;
-        for(int i=0; i<input.length(); i++){
-            if(arr[i]) cout << input[i];
-        }
-        cout << "\n";
-        zoac(idx + 1, end);
-        zoac(start, idx);
+    if(min == INF) return;
+    arr[idx] = 1;
+    for(int i=0; i<input.length(); i++){
+        if(arr[i]) cout << input[i];
+    }
+    cout << "\n";
+    zoac(idx + 1, end);
+    zoac(start, idx);
 }
 
 int main(){
