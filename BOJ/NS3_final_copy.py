@@ -1,48 +1,40 @@
-# ECIES 활용 암호화 및 복호화 프로그램
-# 비대칭키 알고리즘 : ECDH 사용
-# 대칭키 알고리즘 : AES 사용
+# 문제점
+    ## AES 암/복호화 재 구현하기
 import hashlib
 import random
 
-# Elliptic Curve 클래스 정의
+# Elliptic Curve Point 클래스 정의
 class ECurve(object):
-    # 초기화 함수
+
     def __init__(self, a, b, p):
         self.a = a
         self.b = b
         self.p = p
-        
-    # 타원 곡선 상의 무한 원소 반환
+
     def inf(self):
         return ECPoint(curve=self, x=None, y=None)
 
-    # 두 타원 곡선이 같은지 비교
     def __eq__(self, other):
         return self.a == other.a and self.b == other.b and self.p == other.p
 
-# Elliptic Curve Point 클래스 정의
 class ECPoint(object):
-    # 초기화 함수
+
     def __init__(self, curve, x, y):
         self.curve = curve
         self.x = x
         self.y = y
 
-    # 현재 점의 복사본 반환
     def copy(self):
         return ECPoint(curve=self.curve, x=self.x, y=self.y)
 
-    # 무한 원소인지 확인
     def is_inf(self):
         return self == self.curve.inf()
 
-    # 두 점이 같은지 비교
     def __eq__(self, other):
         return self.curve == other.curve and self.x == other.x and self.y == other.y
 
-    # Point 곱셈 함수
+    # Point multiplication
     def __mul__(self, s):
-        # 점과 값이 곱해졌을 때 결과 반환
         bits = [s & (1 << i) for i in range(s.bit_length()-1, -1, -1)]
         res = self.curve.inf()
         for bit in bits:
@@ -51,40 +43,29 @@ class ECPoint(object):
                 res = res + self
         return res
 
-    # Point 덧셈 함수
+    # Point addition
     def __add__(self, other):
-        # 무한 원소 연산 시 복사본 반환
         if self.is_inf():
             return other.copy()
         if other.is_inf():
             return self.copy()
-        
-        # 두 점 좌표 및 유한 체 크기 가져오기
         x1, y1 = self.x, self.y
         x2, y2 = other.x, other.y
         p = self.curve.p
-
-        # 두 점 동일한 경우
         if x1 % p == x2 % p and y1 % p == (-y2) % p:
             return self.curve.inf()
-        
-        # 두 점 다른 경우
         if self != other:
-            # 기울기 계산
             s = (y2 - y1) * pow(x2 - x1, -1, p) % p
-
         else:
-            # Point Doubling
+            # Point doubling
             s = (3 * pow(x1, 2) + self.curve.a) * pow(2 * y1, -1, p) % p
-        
-        # 새로운 점의 x,y 좌표 계산
         x3 = (pow(s, 2) - x1 - x2) % p
         y3 = (s * (x1 - x3) - y1) % p
-
-        # 계산된 좌표의 새로운 ECPoint 객체를 반환
         return ECPoint(curve=self.curve, x=x3, y=y3)
 
-# S-box 정의
+#############################################################################################
+
+# AES 기반 ECIES ENCRYPT 함수
 s_box_string = '63 7c 77 7b f2 6b 6f c5 30 01 67 2b fe d7 ab 76' \
                'ca 82 c9 7d fa 59 47 f0 ad d4 a2 af 9c a4 72 c0' \
                'b7 fd 93 26 36 3f f7 cc 34 a5 e5 f1 71 d8 31 15' \
@@ -106,7 +87,7 @@ s_box_string = '63 7c 77 7b f2 6b 6f c5 30 01 67 2b fe d7 ab 76' \
 s_box = bytearray.fromhex(s_box_string)
 
 
-def sub_word(word: [int]) -> bytes: # type: ignore
+def sub_word(word: [int]) -> bytes:
     substituted_word = bytes(s_box[i] for i in word)
     return substituted_word
 
@@ -121,11 +102,11 @@ def xor_bytes(a: bytes, b: bytes) -> bytes:
     return bytes([x ^ y for (x, y) in zip(a, b)])
 
 
-def rot_word(word: [int]) -> [int]: # type: ignore
+def rot_word(word: [int]) -> [int]:
     return word[1:] + word[:1]
 
-# 키 확장 함수
-def key_expansion(key: bytes, nb: int = 4) -> [[[int]]]: # type: ignore
+
+def key_expansion(key: bytes, nb: int = 4) -> [[[int]]]:
 
     nk = len(key) // 4
 
@@ -151,18 +132,22 @@ def key_expansion(key: bytes, nb: int = 4) -> [[[int]]]: # type: ignore
     return [w[i*4:(i+1)*4] for i in range(len(w) // 4)]
 
 
-def add_round_key(state: [[int]], key_schedule: [[[int]]], round: int): # type: ignore
+def add_round_key(state: [[int]], key_schedule: [[[int]]], round: int):
     round_key = key_schedule[round]
     for r in range(len(state)):
         state[r] = [state[r][c] ^ round_key[r][c] for c in range(len(state[0]))]
 
 
-def sub_bytes(state: [[int]]): # type: ignore
+def sub_bytes(state: [[int]]):
     for r in range(len(state)):
         state[r] = [s_box[state[r][c]] for c in range(len(state[0]))]
 
 
-def shift_rows(state: [[int]]): # type: ignore
+def shift_rows(state: [[int]]):
+    # [00, 10, 20, 30]     [00, 10, 20, 30]
+    # [01, 11, 21, 31] --> [11, 21, 31, 01]
+    # [02, 12, 22, 32]     [22, 32, 02, 12]
+    # [03, 13, 23, 33]     [33, 03, 13, 23]
     state[0][1], state[1][1], state[2][1], state[3][1] = state[1][1], state[2][1], state[3][1], state[0][1]
     state[0][2], state[1][2], state[2][2], state[3][2] = state[2][2], state[3][2], state[0][2], state[1][2]
     state[0][3], state[1][3], state[2][3], state[3][3] = state[3][3], state[0][3], state[1][3], state[2][3]
@@ -174,7 +159,7 @@ def xtime(a: int) -> int:
     return a << 1
 
 
-def mix_column(col: [int]): # type: ignore
+def mix_column(col: [int]):
     c_0 = col[0]
     all_xor = col[0] ^ col[1] ^ col[2] ^ col[3]
     col[0] ^= all_xor ^ xtime(col[0] ^ col[1])
@@ -183,17 +168,17 @@ def mix_column(col: [int]): # type: ignore
     col[3] ^= all_xor ^ xtime(c_0 ^ col[3])
 
 
-def mix_columns(state: [[int]]): # type: ignore
+def mix_columns(state: [[int]]):
     for r in state:
         mix_column(r)
 
 
-def state_from_bytes(data: bytes) -> [[int]]: # type: ignore
+def state_from_bytes(data: bytes) -> [[int]]:
     state = [data[i*4:(i+1)*4] for i in range(len(data) // 4)]
     return state
 
 
-def bytes_from_state(state: [[int]]) -> bytes: # type: ignore
+def bytes_from_state(state: [[int]]) -> bytes:
     return bytes(state[0] + state[1] + state[2] + state[3])
 
 
@@ -226,9 +211,14 @@ def aes_encryption(data: bytes, key: bytes) -> bytes:
 
     cipher = bytes_from_state(state)
     return cipher
+##################################################################################################
 
 # AES 기반 ECIES DECRYPT 함수
-def inv_shift_rows(state: [[int]]) -> [[int]]: # type: ignore
+def inv_shift_rows(state: [[int]]) -> [[int]]:
+    # [00, 10, 20, 30]     [00, 10, 20, 30]
+    # [01, 11, 21, 31] <-- [11, 21, 31, 01]
+    # [02, 12, 22, 32]     [22, 32, 02, 12]
+    # [03, 13, 23, 33]     [33, 03, 13, 23]
     state[1][1], state[2][1], state[3][1], state[0][1] = state[0][1], state[1][1], state[2][1], state[3][1]
     state[2][2], state[3][2], state[0][2], state[1][2] = state[0][2], state[1][2], state[2][2], state[3][2]
     state[3][3], state[0][3], state[1][3], state[2][3] = state[0][3], state[1][3], state[2][3], state[3][3]
@@ -255,28 +245,32 @@ inv_s_box_string = '52 09 6a d5 30 36 a5 38 bf 40 a3 9e 81 f3 d7 fb' \
 inv_s_box = bytearray.fromhex(inv_s_box_string)
 
 
-def inv_sub_bytes(state: [[int]]) -> [[int]]: # type: ignore
+def inv_sub_bytes(state: [[int]]) -> [[int]]:
     for r in range(len(state)):
         state[r] = [inv_s_box[state[r][c]] for c in range(len(state[0]))]
 
 
 def xtimes_0e(b):
+    # 0x0e = 14 = b1110 = ((x * 2 + x) * 2 + x) * 2
     return xtime(xtime(xtime(b) ^ b) ^ b)
 
 
 def xtimes_0b(b):
+    # 0x0b = 11 = b1011 = ((x*2)*2+x)*2+x
     return xtime(xtime(xtime(b)) ^ b) ^ b
 
 
 def xtimes_0d(b):
+    # 0x0d = 13 = b1101 = ((x*2+x)*2)*2+x
     return xtime(xtime(xtime(b) ^ b)) ^ b
 
 
 def xtimes_09(b):
+    # 0x09 = 9  = b1001 = ((x*2)*2)*2+x
     return xtime(xtime(xtime(b))) ^ b
 
 
-def inv_mix_column(col: [int]): # type: ignore
+def inv_mix_column(col: [int]):
     c_0, c_1, c_2, c_3 = col[0], col[1], col[2], col[3]
     col[0] = xtimes_0e(c_0) ^ xtimes_0b(c_1) ^ xtimes_0d(c_2) ^ xtimes_09(c_3)
     col[1] = xtimes_09(c_0) ^ xtimes_0e(c_1) ^ xtimes_0b(c_2) ^ xtimes_0d(c_3)
@@ -284,12 +278,12 @@ def inv_mix_column(col: [int]): # type: ignore
     col[3] = xtimes_0b(c_0) ^ xtimes_0d(c_1) ^ xtimes_09(c_2) ^ xtimes_0e(c_3)
 
 
-def inv_mix_columns(state: [[int]]) -> [[int]]: # type: ignore
+def inv_mix_columns(state: [[int]]) -> [[int]]:
     for r in state:
         inv_mix_column(r)
 
 
-def inv_mix_column_optimized(col: [int]): # type: ignore
+def inv_mix_column_optimized(col: [int]):
     u = xtime(xtime(col[0] ^ col[2]))
     v = xtime(xtime(col[1] ^ col[3]))
     col[0] ^= u
@@ -298,7 +292,7 @@ def inv_mix_column_optimized(col: [int]): # type: ignore
     col[3] ^= v
 
 
-def inv_mix_columns_optimized(state: [[int]]) -> [[int]]: # type: ignore
+def inv_mix_columns_optimized(state: [[int]]) -> [[int]]:
     for r in state:
         inv_mix_column_optimized(r)
     mix_columns(state)
@@ -334,6 +328,8 @@ def aes_decryption(cipher: bytes, key: bytes) -> bytes:
     plain = bytes_from_state(state)
     return plain
 
+########################################################################################################
+
 # HMAC 함수
 def HMAC(key, message):
     h = hashlib.sha256()
@@ -343,34 +339,43 @@ def HMAC(key, message):
 
 # ECIES 암호화 함수
 def ECIES_encrypt(shared_key, plaintext):
-    # 공유키 기반 AES, MAC 키 생성
+    # 1. ECDH를 사용하여 공유 비밀키 계산
+    #print(str(shared_key))
+    # 2. AES, MAC 키 생성
     AES_key = hashlib.sha256(str(shared_key).encode()).digest()
     HMAC_key = hashlib.sha256(str(shared_key).encode()).digest()
 
-    # AES 기반 평문 암호화
+    # 3. AES로 평문 암호화
     ciphertext = aes_encryption(plaintext, AES_key)
 
-    # MAC값 생성
+    # 4. MAC 생성
     mac = HMAC(HMAC_key, plaintext)
-
+    #print("RPlainText: ", plaintext)
+    #print("HMAC_key1: ", HMAC_key)
+    #print("RMAC: ", mac)
     return ciphertext, mac
 
 # ECIES 복호화 함수
 def ECIES_decrypt(shared_key, ciphertext, mac):
-    # 공유키 기반 AES, MAC 키 생성
+    # 1. ECDH를 사용하여 공유 비밀키 계산
+    #print(str(shared_key))
+    # 2. AES 키 생성
     AES_key = hashlib.sha256(str(shared_key).encode()).digest()
     HMAC_key = hashlib.sha256(str(shared_key).encode()).digest()
 
-    # AES 기반 암호문 복호화
+    # 3. AES로 암호문 복호화
     plaintext = aes_decryption(ciphertext, AES_key)
 
-    # MAC 생성 및 비교 검증
+    # 4. MAC 생성 및 검증
+    #print("EPlainText: ", plaintext)
+    #print("HMAC_key2: ", HMAC_key)
     expected_mac = HMAC(HMAC_key, plaintext)
+    #print("EMAC: ", expected_mac)
     assert (mac == expected_mac)
 
     return plaintext
 
-# PKCS7 기반의 패딩 함수 정의
+# PKCS5 방식을 통한 패딩 함수 정의
 def pad(data):
     # 16byte 블록 단위, 패딩에 필요한 바이트 계산
     padding_length = 16 - (len(data) % 16)
@@ -379,7 +384,7 @@ def pad(data):
     # 데이터에 패딩 추가
     return data + padding
 
-# PKCS7 기반의 패딩 제거 함수 정의
+# PKCS5 패딩 제거 함수 정의
 def unpad(data):
     # 복호화 데이터 마지막 바이트를 통해 패딩 길이 확인
     padding_length = data[-1]
@@ -388,14 +393,18 @@ def unpad(data):
 
 # 메인 함수
 def main():
-    # 타원 곡선 파라미터 입력 (함수화, 예외처리)
-    a = int(input("Elliptic Curve의 a값을 입력해주세요: "))
-    b = int(input("Elliptic Curve의 b값을 입력해주세요: "))
-    p = int(input("유한필드 Fp에서 소수 p값을 입력해주세요: "))
+    # 타원 곡선 파라미터 입력
+    #a = int(input("Enter the value of 'a' for the elliptic curve: "))
+    #b = int(input("Enter the value of 'b' for the elliptic curve: "))
+    #p = int(input("Enter the prime number 'p' for the finite field Fp: "))
+    # y^2 = x^3 + x + 1 (mod p)
+    a=1
+    b=1
+    p=23
     g_x = 5
     g_y = 7
 
-    # ECDH를 위한 기본값 지정
+    # 사용자의 개인키 및 공개키 생성
     curve = ECurve(a,b,p)
     G = ECPoint(curve, g_x, g_y)
 
@@ -412,25 +421,31 @@ def main():
     shared_key_B = public_key_A * private_key_B
 
     # 공유 비밀키 동일한지 검증
+    print(shared_key_A.x, shared_key_A.y, shared_key_A.curve, shared_key_A)
+    print(shared_key_B.x, shared_key_B.y, shared_key_B.curve, shared_key_B)
     assert (shared_key_A == shared_key_B)
+    print("Same Shared Key!!")
     
-    # shared_key_A의 x, y 좌표를 Byte로 변환
+    # shared_key_A의 x, y 좌표를 바이트로 변환
     x_bytes_A = shared_key_A.x.to_bytes((shared_key_A.x.bit_length() + 7) // 8, byteorder='big')
     y_bytes_A = shared_key_A.y.to_bytes((shared_key_A.y.bit_length() + 7) // 8, byteorder='big')
 
-    # shared_key_B의 x, y 좌표를 Byte로 변환
+    # shared_key_B의 x, y 좌표를 바이트로 변환
     x_bytes_B = shared_key_B.x.to_bytes((shared_key_B.x.bit_length() + 7) // 8, byteorder='big')
     y_bytes_B = shared_key_B.y.to_bytes((shared_key_B.y.bit_length() + 7) // 8, byteorder='big')
 
-    # shared_key의 x, y좌표의 Byte값을 이어붙여 AES 암복호화 키 생성
+    # x, y 좌표를 이어붙여 하나의 이진 데이터로 만들기
     shared_key_bytes_A = x_bytes_A + y_bytes_A
     shared_key_bytes_B = x_bytes_B + y_bytes_B
+    #print(shared_key_bytes_B)
+    #print(shared_key_bytes_A)
+
+    # NIST AES-128 test vector 1 (Ch. C.1, p. 35)
+    #plaintext = bytearray.fromhex('00112233445566778899aabbccddeeff')
 
     # 평문 입력
-    # input 함수화 하여 입력받을 것 (예외처리)
-    plaintext = input("평문을 입력해주세요: ")
-
-    # 평문 byte화 및 패딩
+    #plaintext = input("Enter the message to be encrypted: ")
+    plaintext = "NETWORK"
     plaintext_bytes = plaintext.encode('UTF-8')
     padded_plaintext = pad(plaintext_bytes)
 
@@ -440,10 +455,8 @@ def main():
     # ECIES 복호화
     decrypted_plaintext = ECIES_decrypt(shared_key_bytes_B, ciphertext, mac)
     unpad_decrypted_plaintext = unpad(decrypted_plaintext)
-
-    # 암호문과 복호화된 암호문 출력
+    
     print("Plaintext:", plaintext)
-    print("Ciphertext:", ciphertext)
     print("Decrypted Plaintext:", unpad_decrypted_plaintext)
 
 if __name__ == "__main__":
