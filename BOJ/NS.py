@@ -10,8 +10,6 @@
     ## AES 암/복호화 재 구현하기
 import hashlib
 import random
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad, unpad
 
 # Elliptic Curve Point 클래스 정의
 # 다시 볼 부분
@@ -50,14 +48,17 @@ class ECPoint:
         return result
 
 # ECDH 키 생성 함수
-def ECDH_key_generation(a, b, p, private_key):
-    G = ECPoint(3, 6, a, b, p)  # Generator Point
+def ECDH_key_generation(a, b, p, G, private_key):  # Generator Point
     public_key = G * private_key
+    print(public_key)
     return public_key
 
 # ECDH 공유 비밀키 계산 함수
 def ECDH_shared_key(private_key, public_key):
+    print(public_key)
+    print(private_key)
     shared_key = public_key * private_key
+    print(shared_key)
     return shared_key
 
 ######################################################################
@@ -257,18 +258,6 @@ def AES_decrypt(key, ciphertext):
     return [state[i][j] for j in range(4) for i in range(4)]
 """
 ####################################################################################
-# AES를 사용하여 메시지를 암호화합니다.
-def encrypt_AES(key, plaintext):
-    cipher = AES.new(key, AES.MODE_CBC)
-    ciphertext = cipher.encrypt(pad(plaintext, AES.block_size))
-    return ciphertext, cipher.iv
-
-# AES를 사용하여 암호문을 복호화합니다.
-def decrypt_AES(key, ciphertext, iv):
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    plaintext = unpad(cipher.decrypt(ciphertext), AES.block_size)
-    return plaintext
-
 # HMAC 함수
 def HMAC(key, message):
     h = hashlib.sha256()
@@ -281,19 +270,17 @@ def ECIES_encrypt(private_key_A, public_key_B, plaintext):
     # 1. ECDH를 사용하여 공유 비밀키 계산
     shared_key = ECDH_shared_key(private_key_A, public_key_B)
 
-    # 2. AES 키 생성
+    # 2. AES, MAC 키 생성
     AES_key = hashlib.sha256(str(shared_key).encode()).digest()
     HMAC_key = hashlib.sha256(str(shared_key).encode()).digest()
 
     # 3. AES로 평문 암호화
-    ciphertext, iv = encrypt_AES(AES_key, plaintext)
-    #ciphertext = AES_encrypt(AES_key, plaintext)
+    ciphertext = AES_encrypt(AES_key, plaintext)
 
     # 4. MAC 생성
     mac = HMAC(HMAC_key, ciphertext)
     return ciphertext, mac
 
-iv = 1
 # ECIES 복호화 함수
 def ECIES_decrypt(private_key_B, public_key_A, ciphertext, mac):
     # 1. ECDH를 사용하여 공유 비밀키 계산
@@ -309,8 +296,7 @@ def ECIES_decrypt(private_key_B, public_key_A, ciphertext, mac):
         raise ValueError("MAC verification failed")
 
     # 4. AES로 암호문 복호화
-    plaintext = decrypt_AES(AES_key, ciphertext, iv)
-    #plaintext = AES_decrypt(AES_key, ciphertext)
+    plaintext = AES_decrypt(AES_key, ciphertext)
 
     return plaintext
 
@@ -322,27 +308,36 @@ def main():
     p = int(input("Enter the prime number 'p' for the finite field Fp: "))
 
     # 사용자의 개인키 및 공개키 생성
-    private_key_A = random.randint(1, p-1)
     # ECDH 키 생성 함수 문제 발생
-    public_key_A = ECDH_key_generation(a, b, p, private_key_A)
+    G = ECPoint(3, 3, a, b, p)
+    private_key_A = random.randint(1, p-1)
+    print(private_key_A)
+    public_key_A = ECDH_key_generation(a, b, p, G, private_key_A)
+    print(public_key_A)
     private_key_B = random.randint(1, p-1)
-    public_key_B = ECDH_key_generation(a, b, p, private_key_B)
+    print(private_key_B)
+    public_key_B = ECDH_key_generation(a, b, p, G, private_key_B)
+    print(public_key_B)
 
-    assert private_key_A * public_key_B.x == private_key_B * public_key_A.x
+    k = ECDH_shared_key(private_key_A, public_key_B)
+    j = ECDH_shared_key(private_key_B, public_key_A)
+    print (k.x, k.y, k.a, k.b, k.p)
+    print (j.x, j.y, j.a, j.b, j.p)
+    assert (k.x == j.x and k.y == j.y)
 
-    print("Your public key:", public_key_A)
+    # print("Your public key:", public_key_A)
 
     # 평문 입력
-    plaintext = input("Enter the message to be encrypted: ")
+    #plaintext = input("Enter the message to be encrypted: ")
 
     # ECIES 암호화
-    ciphertext, mac = ECIES_encrypt(private_key_A, public_key_B, plaintext.encode())
+    #ciphertext, mac = ECIES_encrypt(private_key_A, public_key_B, plaintext.encode())
 
     # ECIES 복호화
-    decrypted_plaintext = ECIES_decrypt(private_key_B, public_key_A, ciphertext, mac)
+    #decrypted_plaintext = ECIES_decrypt(private_key_B, public_key_A, ciphertext, mac)
     
-    print("Plaintext:", plaintext)
-    print("Decrypted Plaintext:", decrypted_plaintext.decode())
+    #print("Plaintext:", plaintext)
+    #print("Decrypted Plaintext:", decrypted_plaintext.decode())
 
 if __name__ == "__main__":
     main()
