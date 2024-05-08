@@ -1,6 +1,7 @@
 # ECIES 활용 암호화 및 복호화 프로그램
 # 비대칭키 알고리즘 : ECDH 사용
 # 대칭키 알고리즘 : AES 사용
+# MAC 생성 알고리즘 : hashlib.sha256 사용
 import hashlib
 import random
 
@@ -102,29 +103,29 @@ s_box_string = '63 7c 77 7b f2 6b 6f c5 30 01 67 2b fe d7 ab 76' \
                'e1 f8 98 11 69 d9 8e 94 9b 1e 87 e9 ce 55 28 df' \
                '8c a1 89 0d bf e6 42 68 41 99 2d 0f b0 54 bb 16'.replace(" ", "")
 
-
+# S-box 생성
 s_box = bytearray.fromhex(s_box_string)
 
-
+# S-box에 따라 치환한 배열을 반환
 def sub_word(word: [int]) -> bytes: # type: ignore
     substituted_word = bytes(s_box[i] for i in word)
     return substituted_word
 
-
+# 라운드 상수 값 생성
 def rcon(i: int) -> bytes:
     rcon_lookup = bytearray.fromhex('01020408102040801b36')
     rcon_value = bytes([rcon_lookup[i-1], 0, 0, 0])
     return rcon_value
 
-
+# XOR 연산을 통해 새로운 바이트 배열을 반환
 def xor_bytes(a: bytes, b: bytes) -> bytes:
     return bytes([x ^ y for (x, y) in zip(a, b)])
 
-
+# Byte 회전 함수
 def rot_word(word: [int]) -> [int]: # type: ignore
     return word[1:] + word[:1]
 
-# 키 확장 함수
+# 키를 확장하여 라운드 키 생성
 def key_expansion(key: bytes, nb: int = 4) -> [[[int]]]: # type: ignore
 
     nk = len(key) // 4
@@ -150,30 +151,30 @@ def key_expansion(key: bytes, nb: int = 4) -> [[[int]]]: # type: ignore
 
     return [w[i*4:(i+1)*4] for i in range(len(w) // 4)]
 
-
+# 라운드 키 덧셈 함수
 def add_round_key(state: [[int]], key_schedule: [[[int]]], round: int): # type: ignore
     round_key = key_schedule[round]
     for r in range(len(state)):
         state[r] = [state[r][c] ^ round_key[r][c] for c in range(len(state[0]))]
 
-
+# 각 byte를 S-box에 따라 치환
 def sub_bytes(state: [[int]]): # type: ignore
     for r in range(len(state)):
         state[r] = [s_box[state[r][c]] for c in range(len(state[0]))]
 
-
+# 행을 왼쪽으로 Shift
 def shift_rows(state: [[int]]): # type: ignore
     state[0][1], state[1][1], state[2][1], state[3][1] = state[1][1], state[2][1], state[3][1], state[0][1]
     state[0][2], state[1][2], state[2][2], state[3][2] = state[2][2], state[3][2], state[0][2], state[1][2]
     state[0][3], state[1][3], state[2][3], state[3][3] = state[3][3], state[0][3], state[1][3], state[2][3]
 
-
+# byte * 2 연산 수행
 def xtime(a: int) -> int:
     if a & 0x80:
         return ((a << 1) ^ 0x1b) & 0xff
     return a << 1
 
-
+# MixColumn 단계 수행 함수 1
 def mix_column(col: [int]): # type: ignore
     c_0 = col[0]
     all_xor = col[0] ^ col[1] ^ col[2] ^ col[3]
@@ -182,59 +183,69 @@ def mix_column(col: [int]): # type: ignore
     col[2] ^= all_xor ^ xtime(col[2] ^ col[3])
     col[3] ^= all_xor ^ xtime(c_0 ^ col[3])
 
-
+# MixColumn 단계 수행 함수 2
 def mix_columns(state: [[int]]): # type: ignore
     for r in state:
         mix_column(r)
 
-
+# byte를 state화
 def state_from_bytes(data: bytes) -> [[int]]: # type: ignore
     state = [data[i*4:(i+1)*4] for i in range(len(data) // 4)]
     return state
 
-
+# state를 byte화
 def bytes_from_state(state: [[int]]) -> bytes: # type: ignore
     return bytes(state[0] + state[1] + state[2] + state[3])
 
-
+# AES 알고리즘 기반의 데이터 암호화 수행
 def aes_encryption(data: bytes, key: bytes) -> bytes:
-
+    # 키 비트 길이 계산
     key_bit_length = len(key) * 8
 
+    # 128-bit keys
     if key_bit_length == 128:
         nr = 10
+    # 192-bit keys    
     elif key_bit_length == 192:
         nr = 12
     else:  # 256-bit keys
         nr = 14
 
+    # 4x4 행렬 변환
     state = state_from_bytes(data)
 
+    # 키 확장을 통해 라운드 키 스케줄 생성
     key_schedule = key_expansion(key)
 
+    # 첫 번째 라운드 키를 평문에 추가
     add_round_key(state, key_schedule, round=0)
 
+    # 라운드를 반복하여 수행
     for round in range(1, nr):
         sub_bytes(state)
         shift_rows(state)
         mix_columns(state)
         add_round_key(state, key_schedule, round)
 
+    # SubBytes 변환
     sub_bytes(state)
+    # ShiftRows 변환
     shift_rows(state)
+    # 마지막 라운드 키 추가
     add_round_key(state, key_schedule, round=nr)
 
+    # 암호문, state에서 byte로 변환
     cipher = bytes_from_state(state)
     return cipher
 
-# AES 기반 ECIES DECRYPT 함수
+# 복호화를 위해 역으로 shift
 def inv_shift_rows(state: [[int]]) -> [[int]]: # type: ignore
     state[1][1], state[2][1], state[3][1], state[0][1] = state[0][1], state[1][1], state[2][1], state[3][1]
     state[2][2], state[3][2], state[0][2], state[1][2] = state[0][2], state[1][2], state[2][2], state[3][2]
     state[3][3], state[0][3], state[1][3], state[2][3] = state[0][3], state[1][3], state[2][3], state[3][3]
     return
 
-
+# 역 S-box 정의
 inv_s_box_string = '52 09 6a d5 30 36 a5 38 bf 40 a3 9e 81 f3 d7 fb' \
                    '7c e3 39 82 9b 2f ff 87 34 8e 43 44 c4 de e9 cb' \
                    '54 7b 94 32 a6 c2 23 3d ee 4c 95 0b 42 fa c3 4e' \
@@ -252,30 +263,25 @@ inv_s_box_string = '52 09 6a d5 30 36 a5 38 bf 40 a3 9e 81 f3 d7 fb' \
                    'a0 e0 3b 4d ae 2a f5 b0 c8 eb bb 3c 83 53 99 61' \
                    '17 2b 04 7e ba 77 d6 26 e1 69 14 63 55 21 0c 7d'.replace(" ", "")
 
+# 역 S-box 생성
 inv_s_box = bytearray.fromhex(inv_s_box_string)
 
-
+# 역 S-box 활용 byte 치환
 def inv_sub_bytes(state: [[int]]) -> [[int]]: # type: ignore
     for r in range(len(state)):
         state[r] = [inv_s_box[state[r][c]] for c in range(len(state[0]))]
 
-
+# byte 곱셈 연산 수행
 def xtimes_0e(b):
     return xtime(xtime(xtime(b) ^ b) ^ b)
-
-
 def xtimes_0b(b):
     return xtime(xtime(xtime(b)) ^ b) ^ b
-
-
 def xtimes_0d(b):
     return xtime(xtime(xtime(b) ^ b)) ^ b
-
-
 def xtimes_09(b):
     return xtime(xtime(xtime(b))) ^ b
 
-
+# 역 MixColumns 단계 수행 함수 1
 def inv_mix_column(col: [int]): # type: ignore
     c_0, c_1, c_2, c_3 = col[0], col[1], col[2], col[3]
     col[0] = xtimes_0e(c_0) ^ xtimes_0b(c_1) ^ xtimes_0d(c_2) ^ xtimes_09(c_3)
@@ -283,12 +289,12 @@ def inv_mix_column(col: [int]): # type: ignore
     col[2] = xtimes_0d(c_0) ^ xtimes_09(c_1) ^ xtimes_0e(c_2) ^ xtimes_0b(c_3)
     col[3] = xtimes_0b(c_0) ^ xtimes_0d(c_1) ^ xtimes_09(c_2) ^ xtimes_0e(c_3)
 
-
+# 역 MixColumns 단계 수행 함수 2
 def inv_mix_columns(state: [[int]]) -> [[int]]: # type: ignore
     for r in state:
         inv_mix_column(r)
 
-
+# 역 MixColumns 단계 최적화 함수 1
 def inv_mix_column_optimized(col: [int]): # type: ignore
     u = xtime(xtime(col[0] ^ col[2]))
     v = xtime(xtime(col[1] ^ col[3]))
@@ -297,19 +303,21 @@ def inv_mix_column_optimized(col: [int]): # type: ignore
     col[2] ^= u
     col[3] ^= v
 
-
+# 역 MixColumns 단계 최적화 함수 2
 def inv_mix_columns_optimized(state: [[int]]) -> [[int]]: # type: ignore
     for r in state:
         inv_mix_column_optimized(r)
     mix_columns(state)
 
-
+# AES 알고리즘 기반의 데이터 복호화 수행
 def aes_decryption(cipher: bytes, key: bytes) -> bytes:
 
+    # 키 byte 길이 계산
     key_byte_length = len(key)
+    # 키 bit 길이 계산
     key_bit_length = key_byte_length * 8
-    nk = key_byte_length // 4
 
+    # 키 길이에 따라 라운드 수 결정
     if key_bit_length == 128:
         nr = 10
     elif key_bit_length == 192:
@@ -317,20 +325,28 @@ def aes_decryption(cipher: bytes, key: bytes) -> bytes:
     else:  # 256-bit keys
         nr = 14
 
+    # 4x4 행렬 변환
     state = state_from_bytes(cipher)
+    # 키 확장을 통해 라운드 키 스케줄 생성
     key_schedule = key_expansion(key)
+    # 마지막 라운드 키 암호문에 추가
     add_round_key(state, key_schedule, round=nr)
 
+    # 마지막 라운드부터 역 라운드 수행
     for round in range(nr-1, 0, -1):
         inv_shift_rows(state)
         inv_sub_bytes(state)
         add_round_key(state, key_schedule, round)
         inv_mix_columns(state)
 
+    # 역 ShiftRows 변환
     inv_shift_rows(state)
+    # 역 SubBytes 변환
     inv_sub_bytes(state)
+    # 첫 번째 라운드 키 추가
     add_round_key(state, key_schedule, round=0)
 
+    # 평문을 state에서 byte로 변환
     plain = bytes_from_state(state)
     return plain
 
@@ -341,7 +357,7 @@ def HMAC(key, message):
     h.update(message)
     return h.digest()
 
-# ECIES 암호화 함수
+# AES 기반 ECIES 암호화 함수
 def ECIES_encrypt(shared_key, plaintext):
     # 공유키 기반 AES, MAC 키 생성
     AES_key = hashlib.sha256(str(shared_key).encode()).digest()
@@ -355,7 +371,7 @@ def ECIES_encrypt(shared_key, plaintext):
 
     return ciphertext, mac
 
-# ECIES 복호화 함수
+# AES 기반 ECIES 복호화 함수
 def ECIES_decrypt(shared_key, ciphertext, mac):
     # 공유키 기반 AES, MAC 키 생성
     AES_key = hashlib.sha256(str(shared_key).encode()).digest()
@@ -374,8 +390,10 @@ def ECIES_decrypt(shared_key, ciphertext, mac):
 def pad(data):
     # 16byte 블록 단위, 패딩에 필요한 바이트 계산
     padding_length = 16 - (len(data) % 16)
+    
     # 패딩 길이 만큼 패딩 바이트 생성
     padding = bytes([padding_length] * padding_length)
+
     # 데이터에 패딩 추가
     return data + padding
 
@@ -386,14 +404,76 @@ def unpad(data):
     # 패딩 제외 원래 데이터 반환
     return data[:-padding_length]
 
+# 소수 판별 함수
+def is_prime(n):
+    if n <= 1:
+        return False
+    if n <= 3:
+        return True
+    if n % 2 == 0 or n % 3 == 0:
+        return False
+    i = 5
+    while i * i <= n:
+        if n % i == 0 or n % (i + 2) == 0:
+            return False
+        i += 6
+    return True
+
+# 타원 곡선 파라미터 입력 및 예외 처리 함수
+def get_elliptic_curve_parameters():
+    while True:
+        try:
+            # 타원 곡선 파라미터 입력
+            a = int(input("Elliptic Curve의 a 값을 입력해주세요: "))
+            b = int(input("Elliptic Curve의 b 값을 입력해주세요: "))
+            p = int(input("유한필드 Fp에서 소수 p 값을 입력해주세요: "))
+            
+            # 입력값이 유효한지 확인
+            if a < 0 or b < 0 or p <= 0:
+                raise ValueError("a와 b는 음수가 될 수 없고, p는 양수이어야 합니다.")
+            
+            # 소수 여부 확인
+            if not is_prime(p):
+                raise ValueError("입력된 p값은 소수가 아닙니다.")
+            
+            return a, b, p
+        # 예외 처리 수행
+        except ValueError as ve:
+            print("입력값이 올바르지 않습니다:", ve)
+            print("다시 입력해주세요.")
+        except Exception as e:
+            print("오류가 발생했습니다:", e)
+            print("다시 시도해주세요.")
+
+# 평문 입력 및 예외 처리 함수
+def get_plaintext():
+    while True:
+        try:
+            plaintext = input("평문을 입력해주세요: ")
+
+            # 입력값이 유효한지 확인
+            if not plaintext:
+                raise ValueError("평문이 입력되지 않았습니다.")
+            if len(plaintext.encode('utf-8')) >= 16:
+                raise ValueError("평문의 길이를 16바이트보다 작게 설정해주세요.")
+            
+            return plaintext
+        # 예외 처리 수행
+        except ValueError as ve:
+            print("입력값이 올바르지 않습니다:", ve)
+            print("다시 입력해주세요.")
+        except Exception as e:
+            print("오류가 발생했습니다:", e)
+            print("다시 시도해주세요.")
+
 # 메인 함수
 def main():
-    # 타원 곡선 파라미터 입력 (함수화, 예외처리)
-    a = int(input("Elliptic Curve의 a값을 입력해주세요: "))
-    b = int(input("Elliptic Curve의 b값을 입력해주세요: "))
-    p = int(input("유한필드 Fp에서 소수 p값을 입력해주세요: "))
+    # 타원 곡선 Base Point 정의
     g_x = 5
     g_y = 7
+
+    # 타원 곡선 파라미터 입력
+    a, b, p = get_elliptic_curve_parameters()
 
     # ECDH를 위한 기본값 지정
     curve = ECurve(a,b,p)
@@ -427,8 +507,7 @@ def main():
     shared_key_bytes_B = x_bytes_B + y_bytes_B
 
     # 평문 입력
-    # input 함수화 하여 입력받을 것 (예외처리)
-    plaintext = input("평문을 입력해주세요: ")
+    plaintext = get_plaintext()
 
     # 평문 byte화 및 패딩
     plaintext_bytes = plaintext.encode('UTF-8')
