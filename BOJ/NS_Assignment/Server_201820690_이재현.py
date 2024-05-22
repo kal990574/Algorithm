@@ -1,6 +1,6 @@
 import socket
 from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP, AES
+from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 from Crypto.Signature import pkcs1_15
 from Crypto.Hash import SHA256
@@ -14,7 +14,7 @@ def generate_rsa_keys():
     public_key = key.publickey().export_key()
     return private_key, public_key
 
-# RSA 서명
+# RSA 기반 디지털 서명
 def rsa_sign(data, private_key):
     key = RSA.import_key(private_key)
     h = SHA256.new(data)
@@ -74,44 +74,32 @@ def start_server():
         server_private = get_random_bytes(32)
         server_dhe = pow(G, int.from_bytes(server_private, 'big'), N)
 
+        # RSA 기반 Digital Signature 생성
+        data_to_sign = f"{G}, {N}, {server_dhe}".encode()
+        signature = rsa_sign(data_to_sign, private_key)
 
-        # DHE 파라미터 및 공개키를 RSA로 암호화하여 클라이언트에게 전송
-        #data_to_encrypt = f"{G},{N},{server_dhe}".encode()
-        #cipher_rsa = PKCS1_OAEP.new(RSA.import_key(private_key))
-        #encrypted_data = cipher_rsa.encrypt(data_to_encrypt)
-
-
-        # RSA 공개키, DHE 파라미터, DHE 공개키를 클라이언트에게 전송
+        # RSA 공개키(Cert), DHE 파라미터, 서버의 DHE 공개키, RSA 기반 Digital Signature를 클라이언트에게 전송
         send_data(client_socket, public_key)
         send_data(client_socket, G.to_bytes((G.bit_length() + 7) // 8, 'big'))
         send_data(client_socket, N.to_bytes((N.bit_length() + 7) // 8, 'big'))
         send_data(client_socket, server_dhe.to_bytes((server_dhe.bit_length() + 7) // 8, 'big'))
-        data_to_sign = f"{G}, {N}, {server_dhe}".encode()
-        signature = rsa_sign(data_to_sign, private_key)
         send_data(client_socket, signature)
-        #send_data(client_socket, encrypted_data)
-        #client_socket.send(str(n).encode())
-        #client_socket.send(str(g).encode())
-        #client_socket.send(str(server_dhe).encode())
-        #client_socket.send(encrypted_data)
 
-        # 클라이언트로부터 RSA 암호화된 DHE 공개키 수신
+        # 클라이언트의 DHE 공개키 수신
         client_dhe = recv_data(client_socket)
         client_dhe = int.from_bytes(client_dhe, 'big')
-        #encrypted_client_dhe = client_socket.recv(256)
-        #client_dhe = int.from_bytes(cipher_rsa.decrypt(encrypted_client_dhe), 'big')
-
-        # 공유 비밀키 생성
+        
+        # AES 복호화에 사용될 공유 비밀키 생성
         shared_key = pow(client_dhe, int.from_bytes(server_private, 'big'), N)
         shared_key = shared_key.to_bytes(32, 'big')
 
-        # 클라이언트로부터 암호화된 메시지 수신 및 복호화
+        # 클라이언트로부터 AES 기반 암호화된 메시지 수신 및 복호화
         client_encrypted_msg = recv_data(client_socket)
-        #client_encrypted_msg = client_socket.recv(2048)
         aes_key = scrypt(shared_key, b'salt', 32, N=2**14, r=8, p=1)
         decrypted_msg = aes_decrypt(client_encrypted_msg, aes_key)
         print("클라이언트로부터 받은 메시지: ", decrypted_msg.decode())
 
+        # 클라이언트 및 서버 소켓 종료
         client_socket.close()
         server.close()
         break
