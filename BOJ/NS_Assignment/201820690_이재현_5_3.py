@@ -47,6 +47,7 @@ def decrypt(A, c, s, q):
         
         # 숫자를 문자로 변환
         decrypted_text = ''.join([chr(int(num)) for num in decrypted_vector])
+        # 복호화된 평문 리턴
         return decrypted_text
     
     # 예외 처리
@@ -73,15 +74,17 @@ if __name__ == "__main__":
     # 비밀 키 생성
     secret_key = generate_secret_key(n)
     
-    # 사용자 입력 및 예외 처리
+    # 사용자 평문 입력 및 예외 처리
     plaintext = get_valid_input("암호화할 문자열을 입력하세요: ")
     
     # LWE 기반 암호화
     A, ciphertext = encrypt(plaintext, secret_key, q)
     if A is not None and ciphertext is not None:
+        # 암호문 출력
         print(f"암호문: {ciphertext}")
         
         # LWE 기반 복호화
         decrypted_text = decrypt(A, ciphertext, secret_key, q)
         if decrypted_text is not None:
+            # 복호화된 평문 출력
             print(f"복호화된 평문: {decrypted_text}")
