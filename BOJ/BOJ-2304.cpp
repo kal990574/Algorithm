@@ -3,7 +3,7 @@ using namespace std;
 int N;
 int max_pos, max_h; // 최대 높이의 위치와 높이
 int arr[1001];
-int res = 0
+int res = 0;
 int main(void)
 {
 	int L, H;
