@@ -1,2 +1,2 @@
 
-vector<int> same;
+            visited[i][j] = 1;
