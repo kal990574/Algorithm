@@ -49,4 +49,5 @@ int main(){
         cout << "Problem " << num << ": " << dijkstra() << "\n";
         num ++;
     }
+    return 0;
 }
