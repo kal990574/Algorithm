@@ -8,4 +8,32 @@ int main(){
     // 투포인터?
     cin >> N;
     vector<int> v(N);
+    long ans = 0;
+    for(int i=0; i<N; i++){
+        cin >> v[i];
+    }
+    int start = 0;
+    int end = 1;
+    set<int> s;
+    s.insert(v[start]);
+    ans += 1;
+
+    while(end < N){
+        int prev = s.size();
+
+        s.insert(v[end]);
+
+        if(prev != s.size()){
+            //cout << start << " " << end << "\n";
+            ans += (end - start + 1);
+            end++;
+        }
+
+        if(prev == s.size()){
+            end = start + s.size();
+            s.erase(v[start]);
+            start++;
+        }
+    }
+    cout << ans << "\n";
 }
