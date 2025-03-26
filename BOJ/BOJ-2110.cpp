@@ -24,7 +24,7 @@ int main(){
     while(start <= end){
         int ori = h;
         int mid = (start+end) / 2;
-        // 설치 완료
+        // 설치
         for(int i=pivot; i<N; i++){
             if(home[i] >= home[pivot] + mid){
                 pivot = i;
