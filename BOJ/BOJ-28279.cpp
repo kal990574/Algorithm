@@ -8,7 +8,6 @@ int main() {
 
     int N; 
     cin >> N;
-
     
     int arr[2000001];
     int front = 1000000;   
